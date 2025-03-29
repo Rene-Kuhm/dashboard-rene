@@ -1,5 +1,5 @@
 import { prisma } from '../db';
-import { Product } from '@prisma/client';
+import { Product } from '../../types';
 
 export const ProductService = {
   async getProducts(): Promise<Product[]> {
