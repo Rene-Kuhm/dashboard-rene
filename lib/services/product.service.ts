@@ -1,8 +1,18 @@
 import { prisma } from '../db';
 import type { Product } from '../../types';
 
+interface ApiResponse {
+  data: Product[];
+  meta: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  };
+}
+
 export const ProductService = {
-  async getProducts(): Promise<Product[]> {
+  async getProducts(): Promise<ApiResponse | Product[]> {
     try {
       const response = await fetch('/api/products', {
         next: { revalidate: 3600 } // Cache for 1 hour

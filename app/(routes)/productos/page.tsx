@@ -10,19 +10,45 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui
 import { Button } from '../../../components/ui/button';
 import { LoadingSpinner } from '../../../components/ui/loading-spinner';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '../../../lib/hooks/useAuth'; // We'll create this hook
+
+interface ApiResponse {
+  data: Product[];
+  meta: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  };
+}
 
 export default function ProductosPage() {
   const router = useRouter();
+  const { user, isLoading: authLoading } = useAuth(); // Get auth state
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
 
+  // Redirect if not authenticated
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.push('/login');
+    }
+  }, [user, authLoading, router]);
+
   const loadProducts = async () => {
     try {
       setLoading(true);
-      const data = await ProductService.getProducts();
-      setProducts(data);
+      const response = await ProductService.getProducts();
+      
+      // Check if the response is in the new format with data/meta properties
+      if (response && typeof response === 'object' && 'data' in response) {
+        setProducts(response.data as Product[]);
+      } else {
+        // If it's the old format (direct array)
+        setProducts(response as Product[]);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error loading products');
     } finally {
@@ -31,8 +57,10 @@ export default function ProductosPage() {
   };
 
   useEffect(() => {
-    loadProducts();
-  }, []);
+    if (user) { // Only load products if user is authenticated
+      loadProducts();
+    }
+  }, [user]);
 
   const handleDelete = async (id: string) => {
     if (!confirm('¿Estás seguro de que quieres eliminar este producto?')) return;
@@ -45,10 +73,32 @@ export default function ProductosPage() {
     }
   };
 
-  const filteredProducts = products.filter(product =>
-    product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    product.category.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // If still checking auth or not authenticated, show loading
+  if (authLoading) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center h-screen">
+          <LoadingSpinner size="lg" />
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  // Make sure products is always an array before filtering
+  const filteredProducts = Array.isArray(products) 
+    ? products.filter(product =>
+        product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        product.category.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+    : [];
+
+  // Show user info if available
+  const userInfo = user ? (
+    <div className="text-sm text-muted-foreground mb-4">
+      Logged in as: {user.name || user.email} 
+      {user.provider && <span className="ml-2">(via {user.provider})</span>}
+    </div>
+  ) : null;
 
   return (
     <DashboardLayout>
@@ -58,6 +108,7 @@ export default function ProductosPage() {
           <p className="text-muted-foreground">
             Gestiona todos tus productos desde aquí.
           </p>
+          {userInfo}
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm">
