@@ -3,21 +3,20 @@
 import React, { useEffect, useState } from 'react';
 import { DashboardLayout } from '../../../components/layout';
 import { ProductService } from '../../../lib/services/product.service';
-import { Product } from '../../../types';
+import type { Product } from '../../../types';
 import { Search, Filter, Plus } from 'lucide-react';
 import { Input } from '../../../components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
 import { LoadingSpinner } from '../../../components/ui/loading-spinner';
+import { useRouter } from 'next/navigation';
 
 export default function ProductosPage() {
+  const router = useRouter();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    loadProducts();
-  }, []);
+  const [searchTerm, setSearchTerm] = useState('');
 
   const loadProducts = async () => {
     try {
@@ -30,6 +29,26 @@ export default function ProductosPage() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    loadProducts();
+  }, []);
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('¿Estás seguro de que quieres eliminar este producto?')) return;
+    
+    try {
+      await ProductService.deleteProduct(id);
+      setProducts(products.filter(p => p.id !== id));
+    } catch (err) {
+      alert('Error al eliminar el producto');
+    }
+  };
+
+  const filteredProducts = products.filter(product =>
+    product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    product.category.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   return (
     <DashboardLayout>
@@ -59,6 +78,8 @@ export default function ProductosPage() {
             type="search"
             placeholder="Buscar productos..."
             className="pl-8"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
       </div>
@@ -68,13 +89,17 @@ export default function ProductosPage() {
           <LoadingSpinner size="lg" />
         ) : error ? (
           <div className="text-destructive">{error}</div>
+        ) : filteredProducts.length === 0 ? (
+          <div className="text-muted-foreground col-span-full text-center py-10">
+            No se encontraron productos
+          </div>
         ) : (
-          products.map((product) => (
+          filteredProducts.map((product) => (
             <Card key={product.id} className="overflow-hidden">
               <div 
                 className="w-full h-48 bg-gray-100 relative"
                 style={{
-                  backgroundImage: `url(${product.imagen})`,
+                  backgroundImage: `url(${product.images[0]})`,
                   backgroundSize: 'cover',
                   backgroundPosition: 'center'
                 }}
@@ -82,17 +107,26 @@ export default function ProductosPage() {
               <CardHeader className="p-4">
                 <div className="flex justify-between items-start">
                   <div>
-                    <CardTitle className="text-lg">{product.nombre}</CardTitle>
-                    <p className="text-muted-foreground text-sm">{product.categoria}</p>
+                    <CardTitle className="text-lg">{product.name}</CardTitle>
+                    <p className="text-muted-foreground text-sm">{product.category}</p>
                   </div>
-                  <p className="font-bold">${product.precio}</p>
+                  <p className="font-bold">${product.price.toFixed(2)}</p>
                 </div>
               </CardHeader>
               <CardContent className="p-4 pt-0 flex justify-between">
                 <p className="text-sm">Stock: <span className="font-medium">{product.stock}</span></p>
                 <div className="space-x-2">
-                  <Button size="sm" variant="outline">Editar</Button>
-                  <Button size="sm" variant="outline" className="text-destructive border-destructive hover:bg-destructive/10">Eliminar</Button>
+                  <Button size="sm" variant="outline" onClick={() => router.push(`/productos/${product.id}`)}>
+                    Editar
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    className="text-destructive border-destructive hover:bg-destructive/10"
+                    onClick={() => handleDelete(product.id)}
+                  >
+                    Eliminar
+                  </Button>
                 </div>
               </CardContent>
             </Card>

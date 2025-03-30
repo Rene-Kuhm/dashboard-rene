@@ -1,34 +1,47 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { UserService } from '../../../lib/services/user.service';
 import { DashboardLayout } from '../../../components/layout';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
 import { Search, UserPlus, UserCheck, Mail, Phone, MoreVertical, Shield } from 'lucide-react';
 import { Input } from '../../../components/ui/input';
+import { LoadingSpinner } from '../../../components/ui/loading-spinner';
+
+interface User {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  imageUrl: string;
+  role: string;
+  status: string;
+  phone?: string;
+  createdAt: string;
+  lastSignInAt?: string;
+}
 
 export default function UsuariosPage() {
-  const usuarios = [
-    {
-      id: '1',
-      nombre: 'Juan Pérez',
-      email: 'juan@ejemplo.com',
-      telefono: '+34 612 345 678',
-      rol: 'Admin',
-      estado: 'Activo',
-      fechaRegistro: new Date('2023-12-01'),
-    },
-    {
-      id: '2',
-      nombre: 'María López',
-      email: 'maria@ejemplo.com',
-      telefono: '+34 623 456 789',
-      rol: 'Usuario',
-      estado: 'Activo',
-      fechaRegistro: new Date('2024-01-15'),
-    },
-    // ...más usuarios
-  ];
+  const [users, setUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const loadUsers = async () => {
+      try {
+        setLoading(true);
+        const data = await UserService.getUsers();
+        setUsers(data);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Error loading users');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadUsers();
+  }, []);
 
   const formatDate = (date: Date) => {
     return new Intl.DateTimeFormat('es-ES').format(date);
@@ -56,7 +69,7 @@ export default function UsuariosPage() {
           </CardHeader>
           <CardContent className="flex items-center gap-2">
             <UserCheck className="h-4 w-4 text-muted-foreground" />
-            <div className="text-2xl font-bold">{usuarios.length}</div>
+            <div className="text-2xl font-bold">{users.length}</div>
           </CardContent>
         </Card>
 
@@ -67,7 +80,7 @@ export default function UsuariosPage() {
           <CardContent className="flex items-center gap-2">
             <Shield className="h-4 w-4 text-emerald-500" />
             <div className="text-2xl font-bold">
-              {usuarios.filter(user => user.estado === 'Activo').length}
+              {users.filter(user => user.status === 'Activo').length}
             </div>
           </CardContent>
         </Card>
@@ -79,7 +92,7 @@ export default function UsuariosPage() {
           <CardContent className="flex items-center gap-2">
             <Shield className="h-4 w-4 text-blue-500" />
             <div className="text-2xl font-bold">
-              {usuarios.filter(user => user.rol === 'Admin').length}
+              {users.filter(user => user.role === 'Admin').length}
             </div>
           </CardContent>
         </Card>
@@ -114,49 +127,72 @@ export default function UsuariosPage() {
                 </tr>
               </thead>
               <tbody>
-                {usuarios.map((usuario) => (
-                  <tr key={usuario.id} className="border-b">
-                    <td className="p-3 font-medium">{usuario.nombre}</td>
-                    <td className="p-3">
-                      <div className="flex items-center gap-2">
-                        <Mail className="h-4 w-4 text-muted-foreground" />
-                        {usuario.email}
-                      </div>
-                    </td>
-                    <td className="p-3">
-                      <div className="flex items-center gap-2">
-                        <Phone className="h-4 w-4 text-muted-foreground" />
-                        {usuario.telefono}
-                      </div>
-                    </td>
-                    <td className="p-3 text-center">
-                      <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
-                        usuario.rol === 'Admin' 
-                          ? 'bg-blue-100 text-blue-800'
-                          : 'bg-gray-100 text-gray-800'
-                      }`}>
-                        {usuario.rol}
-                      </span>
-                    </td>
-                    <td className="p-3 text-center">
-                      <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
-                        usuario.estado === 'Activo'
-                          ? 'bg-emerald-100 text-emerald-800'
-                          : 'bg-rose-100 text-rose-800'
-                      }`}>
-                        {usuario.estado}
-                      </span>
-                    </td>
-                    <td className="p-3 text-center text-sm">{formatDate(usuario.fechaRegistro)}</td>
-                    <td className="p-3">
-                      <div className="flex justify-end">
-                        <Button size="sm" variant="ghost">
-                          <MoreVertical className="h-4 w-4" />
-                        </Button>
-                      </div>
+                {loading ? (
+                  <tr>
+                    <td colSpan={7} className="text-center py-4">
+                      <LoadingSpinner size="sm" />
                     </td>
                   </tr>
-                ))}
+                ) : error ? (
+                  <tr>
+                    <td colSpan={7} className="text-center py-4 text-destructive">
+                      {error}
+                    </td>
+                  </tr>
+                ) : (
+                  users.map((user) => (
+                    <tr key={user.id} className="border-b">
+                      <td className="p-3 font-medium">
+                        <div className="flex items-center gap-3">
+                          <img 
+                            src={user.imageUrl} 
+                            alt={user.firstName} 
+                            className="w-8 h-8 rounded-full"
+                          />
+                          {user.firstName} {user.lastName}
+                        </div>
+                      </td>
+                      <td className="p-3">
+                        <div className="flex items-center gap-2">
+                          <Mail className="h-4 w-4 text-muted-foreground" />
+                          {user.email}
+                        </div>
+                      </td>
+                      <td className="p-3">
+                        <div className="flex items-center gap-2">
+                          <Phone className="h-4 w-4 text-muted-foreground" />
+                          {user.phone}
+                        </div>
+                      </td>
+                      <td className="p-3 text-center">
+                        <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
+                          user.role === 'Admin' 
+                            ? 'bg-blue-100 text-blue-800'
+                            : 'bg-gray-100 text-gray-800'
+                        }`}>
+                          {user.role}
+                        </span>
+                      </td>
+                      <td className="p-3 text-center">
+                        <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
+                          user.status === 'Activo'
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : 'bg-rose-100 text-rose-800'
+                        }`}>
+                          {user.status}
+                        </span>
+                      </td>
+                      <td className="p-3 text-center text-sm">{formatDate(new Date(user.createdAt))}</td>
+                      <td className="p-3">
+                        <div className="flex justify-end">
+                          <Button size="sm" variant="ghost">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>

@@ -18,6 +18,7 @@ import {
   DollarSign,
   ShoppingCart
 } from "lucide-react";
+import { useClerk } from "@clerk/nextjs";
 
 interface SidebarProps {
   className?: string;
@@ -53,6 +54,12 @@ function SidebarItem({ href, icon, label }: SidebarItemProps) {
 }
 
 export function Sidebar({ className }: SidebarProps) {
+  const { signOut } = useClerk();
+
+  const handleSignOut = () => {
+    signOut();
+  };
+
   return (
     <div className={cn(
       "w-64 border-r border-sidebar-border bg-sidebar flex flex-col h-screen overflow-y-auto", 
@@ -100,7 +107,10 @@ export function Sidebar({ className }: SidebarProps) {
       </div>
       
       <div className="mt-auto p-4 border-t border-sidebar-border">
-        <button className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all w-full hover:bg-sidebar-accent/50 text-sidebar-foreground">
+        <button 
+          onClick={handleSignOut}
+          className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all w-full hover:bg-sidebar-accent/50 text-sidebar-foreground"
+        >
           <LogOut className="h-4 w-4" aria-hidden="true" />
           Cerrar Sesión
         </button>
