@@ -5,9 +5,10 @@ export async function GET(
   req: Request,
   { params }: { params: { id: string } }
 ) {
+  const id = params.id;
   try {
     const product = await prisma.product.findUnique({
-      where: { id: params.id },
+      where: { id },
     });
 
     if (!product) {
@@ -30,10 +31,11 @@ export async function PATCH(
   req: Request,
   { params }: { params: { id: string } }
 ) {
+  const id = params.id;
   try {
     const body = await req.json();
     const product = await prisma.product.update({
-      where: { id: params.id },
+      where: { id },
       data: body,
     });
     return NextResponse.json(product);
@@ -49,9 +51,10 @@ export async function DELETE(
   req: Request,
   { params }: { params: { id: string } }
 ) {
+  const id = params.id;
   try {
     await prisma.product.delete({
-      where: { id: params.id },
+      where: { id },
     });
     return NextResponse.json({ success: true });
   } catch (error) {

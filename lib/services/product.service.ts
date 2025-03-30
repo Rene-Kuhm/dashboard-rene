@@ -25,7 +25,11 @@ export const ProductService = {
         body: JSON.stringify(data),
       });
       
-      if (!response.ok) throw new Error('Error creating product');
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Error creating product');
+      }
+      
       return response.json();
     } catch (error) {
       console.error('Error in createProduct:', error);

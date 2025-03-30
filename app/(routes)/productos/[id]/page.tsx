@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { DashboardLayout } from '../../../../components/layout';
 import { ProductService } from '../../../../lib/services/product.service';
+import { uploadImage } from '../../../../lib/services/upload.service';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../../components/ui/card';
 import { Button } from '../../../../components/ui/button';
 import { Input } from '../../../../components/ui/input';
@@ -27,12 +28,16 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
     sku: '',
     images: [] as string[]
   });
+  
+  const productId = params?.id;
 
   useEffect(() => {
     const fetchProduct = async () => {
+      if (!productId) return;
+      
       try {
         setLoading(true);
-        const productData = await ProductService.getProductById(params.id);
+        const productData = await ProductService.getProductById(productId);
         setProduct(productData);
         setFormData({
           name: productData.name,
@@ -50,10 +55,8 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
       }
     };
 
-    if (params.id) {
-      fetchProduct();
-    }
-  }, [params.id]);
+    fetchProduct();
+  }, [productId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -82,6 +85,41 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setSaving(true);
+      
+      // Upload the image
+      const imageUrl = await uploadImage(file);
+      
+      // Add to existing images
+      setFormData(prev => ({
+        ...prev,
+        images: [...prev.images, imageUrl]
+      }));
+      
+      // Clear the file input
+      if (event.target) {
+        event.target.value = '';
+      }
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      setError('Error al subir la imagen');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleImageRemove = (indexToRemove: number) => {
+    setFormData(prev => ({
+      ...prev,
+      images: prev.images.filter((_, i) => i !== indexToRemove)
+    }));
   };
 
   if (loading) {
@@ -255,6 +293,14 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
                         alt={`Imagen ${index + 1} de ${formData.name}`}
                         className="rounded-lg object-cover w-full h-full" 
                       />
+                      <Button 
+                        variant="destructive" 
+                        size="sm" 
+                        className="absolute top-2 right-2"
+                        onClick={() => handleImageRemove(index)}
+                      >
+                        Eliminar
+                      </Button>
                     </div>
                   ))}
                   {formData.images.length === 0 && (
@@ -262,6 +308,17 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
                       <p className="text-muted-foreground">No hay imágenes disponibles</p>
                     </div>
                   )}
+                </div>
+                <div className="mt-4">
+                  <label className="text-sm font-medium leading-none block mb-2">
+                    Subir nueva imagen
+                  </label>
+                  <Input 
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    disabled={saving}
+                  />
                 </div>
               </CardContent>
             </Card>

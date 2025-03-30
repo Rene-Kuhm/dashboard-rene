@@ -6,14 +6,16 @@ import { DashboardLayout } from '../../../../components/layout';
 import { Input } from '../../../../components/ui/input';
 import { Button } from '../../../../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../../components/ui/card';
-import { Save, ArrowLeft, ImagePlus } from 'lucide-react';
+import { Save, ArrowLeft, ImagePlus, AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
 import { uploadImage } from '../../../../lib/services/upload.service';
 import { ProductService } from '../../../../lib/services/product.service';
+import { LoadingSpinner } from '../../../../components/ui/loading-spinner';
 
 export default function NuevoProductoPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -23,7 +25,23 @@ export default function NuevoProductoPage() {
     sku: '',
     images: [] as string[]
   });
-  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+
+  // Generate a unique SKU based on the category and a timestamp
+  const generateUniqueSku = (category: string) => {
+    const prefix = category.substring(0, 4).toUpperCase();
+    const timestamp = Date.now().toString().slice(-6);
+    return `${prefix}-${timestamp}`;
+  };
+
+  // Auto-generate SKU when category changes
+  const handleCategoryChange = (category: string) => {
+    if (category && (!formData.sku || formData.sku === '')) {
+      const sku = generateUniqueSku(category);
+      setFormData(prev => ({ ...prev, category, sku }));
+    } else {
+      setFormData(prev => ({ ...prev, category }));
+    }
+  };
 
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -31,15 +49,24 @@ export default function NuevoProductoPage() {
 
     try {
       setLoading(true);
+      setError(null);
+      
+      // Begin upload process
       const imageUrl = await uploadImage(file);
+      
+      // Update form data with returned image URL
       setFormData(prev => ({
         ...prev,
         images: [...prev.images, imageUrl]
       }));
-      setSelectedImage(null);
+      
+      // Clear the file input
+      if (event.target) {
+        event.target.value = '';
+      }
     } catch (error) {
       console.error('Error uploading image:', error);
-      alert('Error al subir la imagen');
+      setError('Error al subir la imagen. Por favor, inténtalo de nuevo.');
     } finally {
       setLoading(false);
     }
@@ -49,6 +76,8 @@ export default function NuevoProductoPage() {
     e.preventDefault();
     try {
       setLoading(true);
+      setError(null);
+      
       const productData = {
         ...formData,
         price: parseFloat(formData.price),
@@ -60,7 +89,13 @@ export default function NuevoProductoPage() {
       router.refresh();
     } catch (error) {
       console.error('Error creating product:', error);
-      alert('Error al crear el producto');
+      
+      // Check if it's a SKU conflict error
+      if (error instanceof Error && error.message.includes('Unique constraint failed')) {
+        setError('El SKU ya existe. Por favor, utiliza otro código único.');
+      } else {
+        setError('Error al crear el producto');
+      }
     } finally {
       setLoading(false);
     }
@@ -82,6 +117,13 @@ export default function NuevoProductoPage() {
           Rellena los campos para crear un nuevo producto.
         </p>
       </div>
+
+      {error && (
+        <div className="mb-6 p-4 border border-destructive bg-destructive/10 rounded-lg flex items-center gap-2 text-destructive">
+          <AlertTriangle size={16} />
+          <p>{error}</p>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
@@ -134,22 +176,38 @@ export default function NuevoProductoPage() {
                     </div>
                   </div>
                   
-                  <div>
-                    <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 block mb-2">
-                      Categoría
-                    </label>
-                    <select 
-                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                      value={formData.category}
-                      onChange={(e) => setFormData(prev => ({ ...prev, category: e.target.value }))}
-                      required
-                    >
-                      <option value="">Selecciona una categoría</option>
-                      <option value="ropa">Ropa</option>
-                      <option value="calzado">Calzado</option>
-                      <option value="electronica">Electrónica</option>
-                      <option value="accesorios">Accesorios</option>
-                    </select>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 block mb-2">
+                        Categoría
+                      </label>
+                      <select 
+                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                        value={formData.category}
+                        onChange={(e) => handleCategoryChange(e.target.value)}
+                        required
+                      >
+                        <option value="">Selecciona una categoría</option>
+                        <option value="Ropa">Ropa</option>
+                        <option value="Calzado">Calzado</option>
+                        <option value="Electronica">Electrónica</option>
+                        <option value="Accesorios">Accesorios</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 block mb-2">
+                        SKU (Código Único)
+                      </label>
+                      <Input 
+                        value={formData.sku}
+                        onChange={(e) => setFormData(prev => ({ ...prev, sku: e.target.value }))}
+                        placeholder="CATG-000001"
+                        required
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Identificador único para el producto
+                      </p>
+                    </div>
                   </div>
                   
                   <div>
@@ -170,7 +228,7 @@ export default function NuevoProductoPage() {
                   <Button type="submit" disabled={loading}>
                     {loading ? (
                       <>
-                        <span className="animate-spin mr-2">⭕</span>
+                        <LoadingSpinner size="sm" className="mr-2" />
                         Guardando...
                       </>
                     ) : (
@@ -204,7 +262,7 @@ export default function NuevoProductoPage() {
                       <Button
                         size="sm"
                         variant="destructive"
-                        className="absolute top-2 right-2"
+                        className="absolute top-2 right-2 h-6 w-6 p-0 min-w-0"
                         onClick={() => setFormData(prev => ({
                           ...prev,
                           images: prev.images.filter((_, i) => i !== index)
@@ -236,10 +294,17 @@ export default function NuevoProductoPage() {
                     </div>
                     <div>
                       <p className="text-sm font-medium mb-1">Arrastra una imagen o</p>
-                      <Button size="sm" variant="outline" disabled={loading}>
-                        {loading ? 'Subiendo...' : 'Seleccionar Archivo'}
+                      <Button size="sm" variant="outline" type="button" disabled={loading}>
+                        {loading ? (
+                          <>
+                            <span className="animate-spin mr-2">⭕</span>
+                            Subiendo...
+                          </>
+                        ) : (
+                          'Seleccionar Archivo'
+                        )}
                       </Button>
-                      <p className="text-xs text-muted-foreground mt-2">PNG, JPG o WEBP (Max. 2MB)</p>
+                      <p className="text-xs text-muted-foreground mt-2">PNG, JPG o WEBP (Max. 5MB)</p>
                     </div>
                   </div>
                 </label>
