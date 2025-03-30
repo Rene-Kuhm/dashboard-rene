@@ -4,11 +4,13 @@ import { cn } from "@/lib/utils";
 interface LoadingSpinnerProps {
   size?: "sm" | "md" | "lg";
   className?: string;
+  text?: string; // Added text prop for accessibility
 }
 
 export function LoadingSpinner({ 
   size = "md", 
-  className 
+  className,
+  text = "Cargando..." 
 }: LoadingSpinnerProps) {
   const sizeClasses = {
     sm: "h-4 w-4 border-2",
@@ -17,13 +19,17 @@ export function LoadingSpinner({
   };
 
   return (
-    <div 
-      className={cn(
-        "animate-spin rounded-full border-t-transparent border-primary",
-        sizeClasses[size],
-        className
-      )}
-      aria-label="Loading"
-    />
+    <div className="flex flex-col items-center justify-center">
+      <div 
+        className={cn(
+          "animate-spin rounded-full border-t-transparent border-primary",
+          sizeClasses[size],
+          className
+        )}
+        role="status"
+        aria-label={text}
+      />
+      <span className="sr-only">{text}</span>
+    </div>
   );
 }
